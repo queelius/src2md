@@ -6,33 +6,33 @@ import fnmatch
 import pathspec
 
 default_langs = {
-    ".py": "python",
-    ".cpp": "cpp",
-    ".cxx": "cpp",
-    ".cc": "cpp",
-    ".c": "c",
-    ".js": "javascript",
-    ".java": "java",
-    ".ts": "typescript",
-    ".go": "go",
-    ".rb": "ruby",
-    ".php": "php",
-    ".swift": "swift",
-    ".kt": "kotlin",
-    ".rs": "rust",
-    ".lark": "lark",
-    ".sh": "bash",
-    ".bash": "bash",
-    ".bat": "batch",
-    ".sql": "sql",
-    ".html": "html",
-    ".css": "css",
-    ".json": "json",
-    ".xml": "xml",
-    ".yaml": "yaml",
-    ".yml": "yaml",
-    ".md": "markdown",
-    ".rst": "markdown"
+    '.py': 'python',
+    '.cpp': 'cpp',
+    '.cxx': 'cpp',
+    '.cc': 'cpp',
+    '.c': 'c',
+    '.js': 'javascript',
+    '.java': 'java',
+    '.ts': 'typescript',
+    '.go': 'go',
+    '.rb': 'ruby',
+    '.php': 'php',
+    '.swift': 'swift',
+    '.kt': 'kotlin',
+    '.rs': 'rust',
+    '.lark': 'lark',
+    '.sh': 'bash',
+    '.bash': 'bash',
+    '.bat': 'batch',
+    '.sql': 'sql',
+    '.html': 'html',
+    '.css': 'css',
+    '.json': 'json',
+    '.xml': 'xml',
+    '.yaml': 'yaml',
+    '.yml': 'yaml',
+    '.md': 'markdown',
+    '.rst': 'markdown'
 }
 
 def convert_rst_to_md(rst_content):
@@ -52,59 +52,13 @@ def convert_rst_to_md(rst_content):
         print(f"Error converting RST to MD: {e}", file=sys.stderr)
         return rst_content  # Fallback to original content if conversion fails
 
-
-def load_ignore_patterns(use_gitignore=False, ignore_file=None):
-    """
-    Load ignore patterns from .gitignore or a custom ignore file.
-
-    Args:
-        use_gitignore (bool): Whether to use .gitignore.
-        ignore_file (Path or None): Path to a custom ignore file.
-
-    Returns:
-        pathspec.PathSpec: Compiled ignore patterns.
-    """
-    patterns = []
-    if use_gitignore:
-        gitignore_path = Path('.gitignore')
-        if gitignore_path.exists():
-            try:
-                with open(gitignore_path, 'r', encoding='utf-8') as f:
-                    gitignore_patterns = f.read().splitlines()
-                    patterns.extend(gitignore_patterns)
-            except (IOError, UnicodeDecodeError) as e:
-                print(f"Error reading .gitignore: {e}", file=sys.stderr)
-
-    if ignore_file:
-        if ignore_file.exists():
-            try:
-                with open(ignore_file, 'r', encoding='utf-8') as f:
-                    custom_patterns = f.read().splitlines()
-                    patterns.extend(custom_patterns)
-            except (IOError, UnicodeDecodeError) as e:
-                print(f"Error reading ignore file {ignore_file}: {e}", file=sys.stderr)
-        else:
-            print(f"Ignore file {ignore_file} does not exist.", file=sys.stderr)
-
-    # Remove comments and empty lines
-    patterns = [p for p in patterns if p and not p.startswith('#')]
-
-    # Add pattern to exclude hidden files and directories
-    patterns.append('.*')  # Exclude all hidden files and directories
-
-    # Compile the patterns
-    spec = pathspec.PathSpec.from_lines('gitwildmatch', patterns)
-    return spec
-
-
-def find_documentation_files(source_path, doc_patterns, ignore_spec, already_included=None):
+def find_documentation_files(source_path, doc_patterns, already_included=None):
     """
     Find documentation files within the source directory based on patterns.
 
     Args:
         source_path (Path): Path to the source directory.
         doc_patterns (list): List of documentation file patterns.
-        ignore_spec (pathspec.PathSpec): Compiled ignore patterns.
         already_included (set): Set of already included documentation files.
 
     Returns:
@@ -112,8 +66,7 @@ def find_documentation_files(source_path, doc_patterns, ignore_spec, already_inc
     """
     doc_files = []
     for root, dirs, files in os.walk(source_path):
-        # Modify dirs in-place to exclude ignored directories and hidden directories
-        dirs[:] = [d for d in dirs if not d.startswith('.') and not ignore_spec.match_file(os.path.join(root, d))]
+        dirs[:] = [d for d in dirs if not d.startswith('.')]
 
         for file in files:
             if file.startswith('.'):
@@ -121,8 +74,6 @@ def find_documentation_files(source_path, doc_patterns, ignore_spec, already_inc
             file_path = Path(root) / file
             relative_path = file_path.relative_to(source_path)
             rel_path_str = str(relative_path)
-            if ignore_spec.match_file(rel_path_str):
-                continue
             for pattern in doc_patterns:
                 if fnmatch.fnmatch(file.lower(), pattern.lower()):
                     if already_included and rel_path_str in already_included:
@@ -134,7 +85,7 @@ def find_documentation_files(source_path, doc_patterns, ignore_spec, already_inc
     return doc_files
 
 
-def include_documentation_files(source_path, markdown_content, doc_patterns, ignore_spec):
+def include_documentation_files(source_path, markdown_content, doc_patterns):
     """
     Include documentation files into the markdown content, prioritizing README.*.
 
@@ -142,15 +93,14 @@ def include_documentation_files(source_path, markdown_content, doc_patterns, ign
         source_path (Path): Path to the source directory.
         markdown_content (list): List to append markdown content to.
         doc_patterns (list): List of documentation file patterns.
-        ignore_spec (pathspec.PathSpec): Compiled ignore patterns.
     """
     # Prioritize README.* files
     prioritized_patterns = ['README.*']
     other_patterns = [pattern for pattern in doc_patterns if pattern not in prioritized_patterns]
 
     already_included = set()
-    prioritized_docs = find_documentation_files(source_path, prioritized_patterns, ignore_spec, already_included)
-    other_docs = find_documentation_files(source_path, other_patterns, ignore_spec, already_included)
+    prioritized_docs = find_documentation_files(source_path, prioritized_patterns, already_included)
+    other_docs = find_documentation_files(source_path, other_patterns, already_included)
 
     # Combine with prioritized docs first
     doc_files = prioritized_docs + other_docs
@@ -192,11 +142,10 @@ def get_language_identifier(file_extension):
         str: Language identifier (e.g., 'python').
     """
 
-    with open("default_langs.json", 'r') as f:
-        return f.get(file_extension.lower(), '')
+    return default_langs.get(file_extension.lower(), '')
 
 
-def generate_markdown(source_path, doc_patterns=None, src_patterns=None, ignore_spec=None):
+def generate_markdown(path, doc_pat=None, src_pat=None, ignore_pat=None):
     """
     Generate Markdown content from the source directory.
 
@@ -204,35 +153,35 @@ def generate_markdown(source_path, doc_patterns=None, src_patterns=None, ignore_
         source_path (Path): Path to the source directory.
         doc_patterns (list): List of documentation file patterns.
         src_patterns (list): List of source file patterns.
-        ignore_spec (pathspec.PathSpec): Compiled ignore patterns.
+        ignore_patterns (list): List of patterns to ignore.
 
     Returns:
         str: Complete Markdown content.
     """
     markdown_content = []
-    source_path = Path(source_path)
+    path = Path(path)
 
     # Add project name as title
-    markdown_content.append(f"# Project: {source_path.name}\n\n")
+    markdown_content.append(f"# Project: {path.name}\n\n")
 
     # Define default documentation patterns
-    if doc_patterns is None:
-        doc_patterns = ['*.md', '*.rst']
+    if doc_pat is None:
+        doc_pat = ['*.md', '*.rst']
 
     # Include documentation files like README.md, README.rst, etc.
-    include_documentation_files(source_path, markdown_content, doc_patterns, ignore_spec)
+    include_documentation_files(path, markdown_content, doc_pat)
 
     # Collect documentation file paths to exclude them from source files
-    doc_files = find_documentation_files(source_path, doc_patterns, ignore_spec)
-    doc_file_paths = set(str(p.relative_to(source_path)) for p in doc_files)
+    doc_files = find_documentation_files(path, doc_pat)
+    doc_file_paths = set(str(p.relative_to(path)) for p in doc_files)
 
     # Traverse the directory
-    for root, dirs, files in os.walk(source_path):
-        # Modify dirs in-place to exclude ignored directories and hidden directories
-        dirs[:] = [d for d in dirs if not d.startswith('.') and not ignore_spec.match_file(os.path.join(root, d))]
+    for root, dirs, files in os.walk(path):
+        # Modify dirs in-place to exclude hidden directories
+        dirs[:] = [d for d in dirs if not any(fnmatch.fnmatch(d, pattern) for pattern in ignore_pat)]
 
         # Compute relative path from source_path
-        rel_dir = Path(root).relative_to(source_path)
+        rel_dir = Path(root).relative_to(path)
         # Determine heading level based on directory depth
         if rel_dir == Path('.'):
             heading_level = 2  # ## for top-level
@@ -244,21 +193,20 @@ def generate_markdown(source_path, doc_patterns=None, src_patterns=None, ignore_
             markdown_content.append(f"{'#' * heading_level} Directory: `{rel_dir}`\n\n")
 
         for file in sorted(files):
-            if file.startswith('.'):
-                continue  # Skip hidden files
+            #if file.startswith('.'):
+            #    continue  # Skip hidden files
             file_path = Path(root) / file
-            rel_path = file_path.relative_to(source_path)
+            rel_path = file_path.relative_to(path)
             rel_path_str = str(rel_path)
+
+            if any(fnmatch.fnmatch(file, pattern) for pattern in ignore_pat):
+                continue  # Skip this file
 
             if rel_path_str in doc_file_paths:
                 continue  # Skip documentation files
 
             # Check if the file matches any source pattern
-            if not any(fnmatch.fnmatch(file.lower(), pattern.lower()) for pattern in src_patterns):
-                continue
-
-            # Exclude files based on ignore patterns
-            if ignore_spec.match_file(rel_path_str):
+            if not any(fnmatch.fnmatch(file, pattern) for pattern in src_pat):
                 continue
 
             try:
@@ -284,3 +232,24 @@ def generate_markdown(source_path, doc_patterns=None, src_patterns=None, ignore_
             markdown_content.append("---\n\n")
 
     return ''.join(markdown_content)
+
+def load_ignore_file(path):
+    """
+    Load patterns to ignore from a file. A reasonable default is
+    to ignore hidden files and directories. One could also copy
+    .gitignore or .dockerignore to .src2mdignore.
+
+    Args:
+        path (Path): Path to the ignore file.
+
+    Returns:
+        list: List of patterns to ignore
+    """
+    pats = []
+    if os.path.exists(path):
+        with open(path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    pats.append(line)
+    return pats

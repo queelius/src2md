@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='src2md',
-    version='0.1.0',
+    version='0.8.0',
     author='Alex Towell',
     author_email='lex@example.com',
     description='A tool to convert source code directories into Markdown documentation.',

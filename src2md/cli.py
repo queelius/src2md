@@ -1,24 +1,27 @@
 """
 src2md - Source Code to Markdown
 
-A script to map a source code directory into a single Markdown file,
-including documentation files (e.g., README.md, README.rst),
-and source code of various file types. This is primarily used to provide an LLM
-context about your project, which may be distributed over multiple files
-and sub-directories.
+A Python package to map a source code directory into a single Markdown file,
+including documentation files (e.g., README.md, README.rst), and source files
+whose filenames match specified patterns.
 
-Usage:
-    ./src2md path/to/source -o output.md [--doc-patterns PATTERN [PATTERN ...]]
-                                [--src-patterns PATTERN [PATTERN ...]]
-                                [--ignore-patterns PATTERN [PATTERN ...]]
-                                [--ignore-file PATH]
+This is primarily used to provide an LLM context about your project, which may
+be distributed over multiple file and sub-directories.
+
+Usage: src2md path/to/source -o output.md
+                            [--doc-pat PATTERN [PATTERN ...]]
+                            [--src-pat PATTERN [PATTERN ...]]
+                            [--ignore-pat PATTERN [PATTERN ...]]
+                            [--ignore-file FILE]
+
+By default, --ignore-file is set to '.src2mdignore', --doc-pat is set to ['*.md', '*.rst'],
+--src-pat is set to all the keys in the `default_langs` dictionary, and --ignore-pat is set to ['.*']
+which ignores all hidden files and directories.
 """
 import argparse
-import json
 from pathlib import Path
-import pathspec
 import sys
-from .utils import generate_markdown, load_ignore_patterns, default_langs
+from .utils import generate_markdown, default_langs, load_ignore_file
 
 def main():
     """
@@ -29,88 +32,69 @@ def main():
         description="Map a source code directory to a Markdown file."
     )
     parser.add_argument(
-        "source_dir",
-        help="Path to the source code directory."
+        "path",
+        help="Path to the source directory."
     )
     parser.add_argument(
-        "-o", "--output",
-        default="project_documentation.md",
-        help="Output Markdown file name. Defaults to 'project_documentation.md'."
+        "-o", "--out",
+        default="project.md",
+        help="Output Markdown file name. Defaults to 'project.md'."
     )
     parser.add_argument(
-        "--doc-patterns",
+        "--doc-pat",
         nargs='+',
         default=['*.md', '*.rst'],
         help="Patterns to identify documentation files (e.g., *.md, *.rst). README.* is prioritized. Defaults to ['*.md', '*.rst']."
     )
     parser.add_argument(
-        "--src-patterns",
+        "--src-pat",
         nargs='+',
-        default=list(default_langs.keys()),
-        help="Patterns to identify source code files (e.g., *.py, *.cpp, *.js). Use '*' to include all files. Defaults to all the keys in default_langs dictionary."
+        default=[f"*{ext}" for ext in default_langs.keys()],
+        help="Whitelist patterns to identify files to include (e.g., *.py, *.cpp, *.js). Use '*' to include all files. Defaults to all the keys in `default_langs` dictionary."
     )
     parser.add_argument(
-        "--ignore-patterns",
-        nargs='*',
-        default=[],
-        help="Additional ignore patterns (e.g., '*.pyc', 'build/', 'dist/'). Defaults to []."
+        "--ignore-pat",
+        nargs='+',
+        default=['.*'],
+        help="Blacklist patterns to identify files to ignore (e.g., *.py, *.cpp, *.js). Use '*' to include all files. Defaults to ['.*'], which ignores all hidden files and directories."
     )
     parser.add_argument(
         "--ignore-file",
-        type=str,
-        default=None,
-        help="Path to a custom ignore file (e.g., .src2mdignore). Defaults to None."
-    )
-    parser.add_argument(
-        "--use-gitignore",
-        action="store_true",
-        default=True,
-        help="Use .gitignore to determine which files/directories to exclude. (Default: True)"
-    )
+        default=".src2mdignore",
+        help="File with patterns to ignore (e.g., *.py, *.cpp, *.js). Defaults to '.src2mdignore'.")
 
     args = parser.parse_args()
 
-    source_path = Path(args.source_dir)
-    if not source_path.is_dir():
-        print(f"Error: {args.source_dir} is not a valid directory.", file=sys.stderr)
+    path = Path(args.path)
+    if not path.is_dir():
+        print(f"Error: {args.path} is not a valid directory.", file=sys.stderr)
         sys.exit(1)
 
-    # Load ignore patterns
-    ignore_spec = load_ignore_patterns(
-        use_gitignore=args.use_gitignore,
-        ignore_file=Path(args.ignore_file) if args.ignore_file else None
-    )
+    ignore_pat = load_ignore_file(path / args.ignore_file)
+    if ignore_pat:
+        args.ignore_pat.extend(ignore_pat)
 
-    # Add additional ignore patterns from command-line arguments
-    if args.ignore_patterns:
-        # Convert patterns to a PathSpec object
-        additional_ignore_spec = pathspec.PathSpec.from_lines('gitwildmatch', args.ignore_patterns)
-        # Combine with existing ignore_spec
-        combined_patterns = list(ignore_spec.patterns) + list(additional_ignore_spec.patterns)
-        ignore_spec = pathspec.PathSpec.from_lines('gitwildmatch', combined_patterns)
-
-    # If '*' is in src_patterns, adjust to include all files except those excluded by ignore_spec and doc_patterns
-    if '*' in args.src_patterns:
+    # If '*' is in src_pat, adjust to include all files except those in doc_pat
+    if '*' in args.src_pat:
         # Replace '*' with a pattern that matches all files
-        args.src_patterns = ['*']
+        args.src_pat = ['*']
 
     try:
         markdown = generate_markdown(
-            source_path,
-            doc_patterns=args.doc_patterns,
-            src_patterns=args.src_patterns,
-            ignore_spec=ignore_spec
-        )
+            args.path,
+            doc_pat=args.doc_pat,
+            src_pat=args.src_pat,
+            ignore_pat=args.ignore_pat)
     except Exception as e:
         print(f"An error occurred while generating documentation: {e}", file=sys.stderr)
         sys.exit(1)
 
     try:
-        with open(args.output, 'w', encoding='utf-8') as f:
+        with open(args.out, 'w', encoding='utf-8') as f:
             f.write(markdown)
-        print(f"Documentation generated and saved to '{args.output}'")
+        print(f"Documentation generated and saved to '{args.out}'")
     except IOError as e:
-        print(f"Error writing to output file {args.output}: {e}", file=sys.stderr)
+        print(f"Error writing to output file {args.out}: {e}", file=sys.stderr)
         sys.exit(1)
 
 
