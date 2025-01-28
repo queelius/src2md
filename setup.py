@@ -2,10 +2,10 @@ from setuptools import setup, find_packages
 
 setup(
     name='src2md',
-    version='0.8.0',
+    version='0.9.0',
     author='Alex Towell',
-    author_email='lex@example.com',
-    description='A tool to convert source code directories into Markdown documentation.',
+    author_email='lex@metafunctor.com',
+    description='A tool to convert source code directories into a single Markdown file.',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     url='https://github.com/queelius/src2md',

@@ -37,7 +37,7 @@ def main():
     )
     parser.add_argument(
         "-o", "--out",
-        default="project.md",
+        default=None,
         help="Output Markdown file name. Defaults to 'project.md'."
     )
     parser.add_argument(
@@ -90,11 +90,17 @@ def main():
         sys.exit(1)
 
     try:
-        with open(args.out, 'w', encoding='utf-8') as f:
+        if args.out:
+            out = args.out
+        else:
+            # strip the path, only include the base dir
+            project_name = path.parts[-1]
+            out = path / f'src2md-{project_name}.md'
+        with open(out, 'w', encoding='utf-8') as f:
             f.write(markdown)
-        print(f"Documentation generated and saved to '{args.out}'")
+        print(f"Documentation generated and saved to '{out}'")
     except IOError as e:
-        print(f"Error writing to output file {args.out}: {e}", file=sys.stderr)
+        print(f"Error writing to output file {out}: {e}", file=sys.stderr)
         sys.exit(1)
 
 

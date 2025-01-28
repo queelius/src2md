@@ -109,12 +109,12 @@ def include_documentation_files(source_path, markdown_content, doc_patterns):
         return
 
     markdown_content.append("## Documentation Files\n")
-    markdown_content.append("\n")
+    markdown_content.append("\n\n")
 
     for doc_file in doc_files:
         rel_path = doc_file.relative_to(source_path)
         markdown_content.append(f"### {rel_path}\n")
-        markdown_content.append("\n")
+        markdown_content.append("\n\n")
 
         try:
             with open(doc_file, 'r', encoding='utf-8') as f:
@@ -127,8 +127,9 @@ def include_documentation_files(source_path, markdown_content, doc_patterns):
         if doc_file.suffix.lower() == '.rst':
             content = convert_rst_to_md(content)
 
+        markdown_content.append("'''markdown\n")
         markdown_content.append(content)
-        markdown_content.append("\n---\n\n")
+        markdown_content.append("'''\n\n")
 
 
 def get_language_identifier(file_extension):
@@ -150,19 +151,19 @@ def generate_markdown(path, doc_pat=None, src_pat=None, ignore_pat=None):
     Generate Markdown content from the source directory.
 
     Args:
-        source_path (Path): Path to the source directory.
-        doc_patterns (list): List of documentation file patterns.
-        src_patterns (list): List of source file patterns.
-        ignore_patterns (list): List of patterns to ignore.
+        path (Path): Path to the source directory.
+        doc_pat (list): List of documentation file patterns.
+        src_pat (list): List of source file patterns.
+        ignore_pat (list): List of patterns to ignore.
 
     Returns:
-        str: Complete Markdown content.
+        str: Markdown representation of the source in the directory and subdirectories.
     """
     markdown_content = []
     path = Path(path)
 
     # Add project name as title
-    markdown_content.append(f"# Project: {path.name}\n\n")
+    markdown_content.append(f"# Project Directory: {path.name}\n\n")
 
     # Define default documentation patterns
     if doc_pat is None:
@@ -175,10 +176,12 @@ def generate_markdown(path, doc_pat=None, src_pat=None, ignore_pat=None):
     doc_files = find_documentation_files(path, doc_pat)
     doc_file_paths = set(str(p.relative_to(path)) for p in doc_files)
 
+    markdown_content.append("### Source Files\n\n")
+
     # Traverse the directory
     for root, dirs, files in os.walk(path):
         # Modify dirs in-place to exclude hidden directories
-        dirs[:] = [d for d in dirs if not any(fnmatch.fnmatch(d, pattern) for pattern in ignore_pat)]
+        dirs[:] = [d for d in dirs if not any(fnmatch.fnmatch(d, pat) for pat in ignore_pat)]
 
         # Compute relative path from source_path
         rel_dir = Path(root).relative_to(path)
@@ -188,25 +191,21 @@ def generate_markdown(path, doc_pat=None, src_pat=None, ignore_pat=None):
         else:
             heading_level = 2 + len(rel_dir.parts)  # Increase heading level based on depth
 
-        # Add directory heading
-        if rel_dir != Path('.'):
-            markdown_content.append(f"{'#' * heading_level} Directory: `{rel_dir}`\n\n")
-
         for file in sorted(files):
-            #if file.startswith('.'):
-            #    continue  # Skip hidden files
+
+            print(f"{file=}")
             file_path = Path(root) / file
             rel_path = file_path.relative_to(path)
             rel_path_str = str(rel_path)
 
-            if any(fnmatch.fnmatch(file, pattern) for pattern in ignore_pat):
+            if any(fnmatch.fnmatch(file, pat) for pat in ignore_pat):
                 continue  # Skip this file
 
             if rel_path_str in doc_file_paths:
                 continue  # Skip documentation files
 
             # Check if the file matches any source pattern
-            if not any(fnmatch.fnmatch(file, pattern) for pattern in src_pat):
+            if not any(fnmatch.fnmatch(file, pat) for pat in src_pat):
                 continue
 
             try:
@@ -220,16 +219,11 @@ def generate_markdown(path, doc_pat=None, src_pat=None, ignore_pat=None):
             lang = get_language_identifier(file_path.suffix)
 
             # Add source file section
-            markdown_content.append(f"### Source File: `{rel_path}`\n\n")
+            markdown_content.append(f"{'#' * (heading_level+1)} Source File: `{rel_path}`\n\n")
 
-            # Include source code
-            markdown_content.append("#### Source Code\n")
-            markdown_content.append("\n```")
-            markdown_content.append(f"{lang}\n")
+            markdown_content.append(f"```{lang}\n")
             markdown_content.append(f"{source_code}\n")
             markdown_content.append("```\n\n")
-
-            markdown_content.append("---\n\n")
 
     return ''.join(markdown_content)
 
