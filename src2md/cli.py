@@ -37,8 +37,9 @@ def main():
     )
     parser.add_argument(
         "-o", "--out",
-        default=None,
-        help="Output Markdown file name. Defaults to 'project.md'."
+        required=True,
+        type=str,
+        help="Output Markdown file name."
     )
     parser.add_argument(
         "--doc-pat",
@@ -90,17 +91,10 @@ def main():
         sys.exit(1)
 
     try:
-        if args.out:
-            out = args.out
-        else:
-            # strip the path, only include the base dir
-            project_name = path.parts[-1]
-            out = path / f'src2md-{project_name}.md'
-        with open(out, 'w', encoding='utf-8') as f:
+        with open(args.out, 'w', encoding='utf-8') as f:
             f.write(markdown)
-        print(f"Documentation generated and saved to '{out}'")
     except IOError as e:
-        print(f"Error writing to output file {out}: {e}", file=sys.stderr)
+        print(f"Error writing to output file {args.out}: {e}")
         sys.exit(1)
 
 

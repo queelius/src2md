@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='src2md',
-    version='0.9.0',
+    version='0.9.1',
     author='Alex Towell',
     author_email='lex@metafunctor.com',
     description='A tool to convert source code directories into a single Markdown file.',

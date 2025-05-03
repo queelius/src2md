@@ -193,7 +193,6 @@ def generate_markdown(path, doc_pat=None, src_pat=None, ignore_pat=None):
 
         for file in sorted(files):
 
-            print(f"{file=}")
             file_path = Path(root) / file
             rel_path = file_path.relative_to(path)
             rel_path_str = str(rel_path)
