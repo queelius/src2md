@@ -3,98 +3,223 @@
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![PyPI](https://img.shields.io/pypi/v/src2md)
 ![Python Versions](https://img.shields.io/pypi/pyversions/src2md)
+![Version](https://img.shields.io/badge/version-2.0.0-green.svg)
 
-**src2md** is a versatile tool that converts source code directories into comprehensive Markdown documentation. It scans your project structure, includes documentation files like `README.md` or `README.rst`, and embeds source code snippets with proper syntax highlighting. Ideal for providing context to LLMs or sharing project details with collaborators.
+**src2md** is a powerful tool that converts source code repositories into structured formats optimized for Large Language Models (LLMs). With intelligent context window management, file importance scoring, and a fluent API, it's the perfect tool for feeding code context to AI models.
 
 ## 🚀 **Features**
 
-- **Automatic Documentation Aggregation**: Collects and prioritizes documentation files (e.g., `README.md`, `README.rst`).
-- **Syntax-Highlighted Source Code**: Embeds source code files with appropriate language identifiers for Markdown.
-- **Flexible File Patterns**: Customize which files to include (whitelist patterns) or exclude (blacklist patterns).
-- **Leverages `.src2mdignore`**: Works like `.gitignore`, you can even use that file directly.
-- **Simple CLI Interface**: Easy-to-use command-line interface for generating documentation.
+### New in v2.0
+- **🎯 Context Window Optimization**: Intelligently fit codebases into LLM context windows
+- **⚡ Fluent API**: Elegant method chaining for intuitive usage
+- **📊 File Importance Scoring**: Multi-factor analysis to prioritize critical files
+- **🪟 Predefined LLM Windows**: Built-in support for GPT-4, Claude, and more
+- **🔄 Progressive Summarization**: Compress less important files to fit token limits
+
+### Core Features
+- **Multiple Output Formats**: JSON, JSONL, Markdown, HTML, and plain text
+- **Smart Token Management**: Accurate token counting with tiktoken
+- **Code Statistics**: Automatic generation of project metrics and complexity analysis
+- **Flexible Filtering**: Customizable include/exclude patterns
+- **Rich CLI Interface**: Beautiful progress indicators and colored output
 
 ## 📦 **Installation**
 
-You can install `src2md` via [PyPI](https://pypi.org/) using `pip`:
+Install via [PyPI](https://pypi.org/) using `pip`:
 
 ```bash
 pip install src2md
 ```
 
-Alternatively, install it directly from the source:
+## 🛠️ **Usage**
 
-```bash
-git clone https://github.com/queelius/src2md.git
-cd src2md
-pip install .
+### Quick Start - Fluent API (New in v2.0!)
+
+```python
+from src2md import Repository, ContextWindow
+
+# Basic usage
+output = Repository("/path/to/project").analyze().to_markdown()
+
+# Optimize for GPT-4 context window
+output = (Repository("/path/to/project")
+    .optimize_for(ContextWindow.GPT_4)
+    .analyze()
+    .to_markdown())
+
+# Full fluent API with all features
+result = (Repository("/path/to/project")
+    .name("MyProject")
+    .branch("main")
+    .include("src/", "lib/")
+    .exclude("tests/", "*.log")
+    .with_importance_scoring()
+    .prioritize(["main.py", "core/"])
+    .optimize_for_tokens(100_000)  # 100K token limit
+    .analyze()
+    .to_json(pretty=True))
 ```
 
-## 🛠️  Usage
-
-Once installed, you can use `src2md` from the command line to generate Markdown documentation for your project.
-
-### Basic Command
+### Command Line Interface
 
 ```bash
-src2md path/to/source -o output.md
+# Basic markdown generation
+src2md /path/to/project -o documentation.md
+
+# With context optimization (coming soon in CLI)
+src2md /path/to/project --optimize-for gpt-4 -o optimized.md
+
+# Multiple output formats
+src2md /path/to/project --format json --pretty
+src2md /path/to/project --format html -o docs.html
 ```
 
-- `path/to/source`: Path to your project's roo directory.
-- `-o output.md`: (Optional) Specifies the output Markdown file name. Defaults to project_documentation.md.
+### Python API Examples
 
-## Advanced Options
+```python
+from src2md import Repository, ContextWindow
 
-- **Specify Documentation Patterns**
+# Example 1: Optimize for Claude 3
+repo = Repository("./my-project")
+output = repo.optimize_for(ContextWindow.CLAUDE_3).analyze().to_markdown()
 
-  Include additional documentation file types.
+# Example 2: Custom token limit with importance scoring
+repo = (Repository("./my-project")
+    .with_importance_scoring()
+    .optimize_for_tokens(50_000)
+    .analyze())
 
-  ```bash
-  src2md path/to/source -o output.md --doc-pat '*.md' '*.rst' '*.lark'
-  ```
+# Example 3: Generate multiple formats
+repo = Repository("./my-project").analyze()
+markdown = repo.to_markdown()
+json_data = repo.to_json()
+html_doc = repo.to_html()
 
-- **Specify Source Code Patterns**
+# Example 4: Access raw data
+data = repo.to_dict()
+print(f"Files: {data['metadata']['file_count']}")
+print(f"Languages: {list(data['statistics']['languages'].keys())}")
+```
 
-  Customize which source files to include. Use '*' to include all files.
+## 📊 **Output Formats**
 
-  ```bash
-  src2md path/to/source -o output.md --src-pat '*.py' '*.js'
-  ```
+### JSON
 
-  To include all files as source code:
+Structured data perfect for programmatic processing:
 
-  ```bash
-  src2md path/to/source -o output.md --src-pat '*'
-  ```
+```json
+{
+  "metadata": {
+    "project_name": "my-project",
+    "generated_at": "2025-01-01T12:00:00",
+    "patterns": {...}
+  },
+  "statistics": {
+    "total_files": 42,
+    "languages": {"python": {"count": 15, "total_size": 50000}},
+    "project_complexity": 3.2
+  },
+  "documentation": [...],
+  "source_files": [...]
+}
+```
 
-- **Add Additional Ignore Patterns**
+### JSONL
 
-  Exclude specific files or directories.
+One JSON object per line - perfect for streaming and big data tools:
 
-  ```bash
-  src2md path/to/source -o output.md --ignore-pat '*.pyc' 'build/' 'dist/'
-  ```
+```jsonl
+{"type": "metadata", "data": {...}}
+{"type": "statistics", "data": {...}}
+{"type": "source_file", "data": {...}}
+```
 
-- **Use a Custom Ignore File**
+### HTML
 
-  Specify a custom ignore file. If `.src2mdignore` is present in the source directory, it will be used by default. Here we show how to point to a different file, the `.gitignore` file.
+Beautiful, styled documentation ready for the web with syntax highlighting and responsive design.
 
-  ```bash
-  src2md path/to/source -o output.md --ignore-file .gitignore
-  ```
+### Markdown
 
-- **Disable .gitignore Usage**
+Clean, readable documentation compatible with GitHub, GitLab, and other platforms.
 
-  Do not use .gitignore for ignoring files.
+## 🔧 **Advanced Options**
 
-  ```bash
-  src2md path/to/source -o output.md --no-use-gitignore
-  ```
-
-## Full Example
+### File Patterns
 
 ```bash
-src2md proj --doc-pat '*.md' '*.lark' --src-pat '*.py' --ignore-pat '*.pyc' 'build/' 'dist/' '.*'
+# Custom documentation patterns
+src2md project --doc-pat '*.md' '*.rst' '*.txt'
+
+# Specific source file types
+src2md project --src-pat '*.py' '*.js' '*.ts'
+
+# Ignore patterns
+src2md project --ignore-pat '*.pyc' 'node_modules/' '.git/'
 ```
 
-This command generates `project.md` by including all `.md`, and `.lark` documentation files, embedding `.py`, source files, and excluding any `.pyc` files, excluding directories named `build` or `dist`, and ignoring all hidden files and directories (start with `.`).
+### Ignore Files
+
+Create a `.src2mdignore` file in your project root:
+
+```gitignore
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+
+# IDE files
+.vscode/
+.idea/
+```
+
+### Configuration
+
+```bash
+# Use custom ignore file
+src2md project --ignore-file .gitignore
+
+# Disable statistics
+src2md project --no-stats
+
+# Metadata only (no file contents)
+src2md project --no-content
+```
+
+## 🎯 **Use Cases**
+
+- **LLM Context**: Generate structured context for AI/ML models
+- **Documentation**: Create beautiful project documentation
+- **Code Analysis**: Extract metrics and statistics from codebases
+- **Data Export**: Convert code to structured formats for analysis
+- **Archive**: Create comprehensive snapshots of projects
+- **CI/CD**: Generate documentation automatically in build pipelines
+
+## 📈 **Statistics & Metrics**
+
+src2md automatically generates:
+
+- File counts by type and language
+- Code complexity scores
+- Size metrics and distributions
+- Language breakdown
+- Project structure analysis
+
+## 🤝 **Migration from v0.x**
+
+The new version is backward compatible. Existing commands work unchanged:
+
+```bash
+# This still works exactly as before
+src2md project -o docs.md --doc-pat '*.md' --src-pat '*.py'
+```
+
+New features are opt-in through additional flags and the Python API.
+
+## 📄 **License**
+
+MIT License - see [LICENSE](LICENSE) file for details.

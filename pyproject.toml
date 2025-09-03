@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "src2md"
+version = "2.0.0"
+description = "Convert source code to structured formats with intelligent LLM context optimization"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+keywords = ["markdown", "source code", "documentation", "llm", "context-window", "code-analysis"]
+authors = [
+    { name = "Your Name", email = "your.email@example.com" }
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Documentation",
+    "Topic :: Text Processing :: Markup :: Markdown",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "rich>=13.0.0",
+    "tiktoken>=0.5.0",
+    "pyyaml>=6.0",
+    "pathspec>=0.11.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/spinoza/src2md"
+"Bug Tracker" = "https://github.com/spinoza/src2md/issues"
+
+[project.scripts]
+src2md = "src2md.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["src2md*"]
