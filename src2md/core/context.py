@@ -5,6 +5,7 @@ from enum import Enum
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 import tiktoken
+import re
 
 
 class ContextWindow(Enum):
@@ -214,9 +215,140 @@ class ContextOptimizer:
             # Simple truncation
             return TokenCounter.truncate(content, target_tokens, self.model)
         
-        # TODO: Implement smart truncation that preserves structure
-        # For now, do simple truncation
-        return TokenCounter.truncate(content, target_tokens, self.model)
+        # Smart truncation that preserves structure
+        return self._smart_truncate(content, target_tokens)
+    
+    def _smart_truncate(self, content: str, target_tokens: int) -> str:
+        """
+        Smart truncation that attempts to preserve code structure.
+        
+        Strategy:
+        1. Try to keep complete functions/classes
+        2. Preserve imports and module-level docstrings
+        3. Remove comments and docstrings from functions if needed
+        4. Truncate at logical boundaries (end of functions, classes)
+        """
+        lines = content.splitlines()
+        
+        # Identify structural boundaries
+        structure_markers = []
+        indent_stack = [0]
+        
+        for i, line in enumerate(lines):
+            stripped = line.lstrip()
+            if not stripped:
+                continue
+            
+            indent = len(line) - len(stripped)
+            
+            # Track class and function definitions
+            if re.match(r'^(class|def|async def)\s+', stripped):
+                structure_markers.append({
+                    'line': i,
+                    'indent': indent,
+                    'type': 'definition',
+                    'content': line
+                })
+                indent_stack.append(indent)
+            elif indent <= indent_stack[-1] and indent_stack[-1] > 0:
+                # End of a code block
+                while indent_stack and indent_stack[-1] > indent:
+                    indent_stack.pop()
+                structure_markers.append({
+                    'line': i,
+                    'indent': indent,
+                    'type': 'boundary'
+                })
+        
+        # Progressive truncation strategy
+        result_lines = []
+        current_tokens = 0
+        
+        # Phase 1: Keep imports and module docstrings
+        in_module_docstring = False
+        for i, line in enumerate(lines):
+            if i < min(50, len(lines)):  # Check first 50 lines for imports
+                if re.match(r'^(from .* import|import )', line):
+                    result_lines.append(line)
+                elif i < 3 and '"""' in line:
+                    in_module_docstring = True
+                    result_lines.append(line)
+                elif in_module_docstring:
+                    result_lines.append(line)
+                    if '"""' in line and i > 0:
+                        in_module_docstring = False
+                        break
+        
+        # Phase 2: Add complete structural units until we approach the limit
+        current_tokens = TokenCounter.count('\n'.join(result_lines), self.model)
+        
+        if current_tokens < target_tokens:
+            # Find structural units (functions/classes)
+            units = []
+            current_unit = []
+            current_indent = 0
+            
+            for i, line in enumerate(lines):
+                stripped = line.lstrip()
+                indent = len(line) - len(stripped)
+                
+                if re.match(r'^(class|def|async def)\s+', stripped) and indent == 0:
+                    if current_unit:
+                        units.append(current_unit)
+                    current_unit = [line]
+                    current_indent = indent
+                elif current_unit:
+                    if indent > current_indent or not stripped:
+                        current_unit.append(line)
+                    else:
+                        units.append(current_unit)
+                        current_unit = [line] if re.match(r'^(class|def|async def)\s+', stripped) else []
+            
+            if current_unit:
+                units.append(current_unit)
+            
+            # Add units until we approach the limit
+            for unit in units:
+                unit_text = '\n'.join(unit)
+                unit_tokens = TokenCounter.count(unit_text, self.model)
+                
+                if current_tokens + unit_tokens <= target_tokens * 0.95:  # Leave 5% buffer
+                    result_lines.extend(unit)
+                    current_tokens += unit_tokens
+                else:
+                    # Try to add a summarized version
+                    summary = self._summarize_unit(unit)
+                    summary_tokens = TokenCounter.count(summary, self.model)
+                    if current_tokens + summary_tokens <= target_tokens:
+                        result_lines.append(summary)
+                        current_tokens += summary_tokens
+                    else:
+                        break
+        
+        result = '\n'.join(result_lines)
+        
+        # Final check and hard truncation if needed
+        if TokenCounter.count(result, self.model) > target_tokens:
+            result = TokenCounter.truncate(result, target_tokens, self.model)
+        
+        return result
+    
+    def _summarize_unit(self, unit_lines: List[str]) -> str:
+        """Create a summary of a code unit (function/class)."""
+        if not unit_lines:
+            return ""
+        
+        first_line = unit_lines[0].strip()
+        
+        # Extract function/class signature
+        if first_line.startswith(('def ', 'async def ', 'class ')):
+            # Keep just the signature
+            signature = first_line
+            if not signature.endswith(':'):
+                signature += ':'
+            return f"{signature}\n    ..."
+        
+        return f"# ... ({len(unit_lines)} lines omitted)"
     
     def get_summary(self) -> Dict:
         """Get summary of context window usage."""

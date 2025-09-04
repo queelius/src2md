@@ -1,0 +1,15 @@
+# Optional LLM dependencies for intelligent summarization
+# Install with: pip install -r requirements-llm.txt
+
+# OpenAI GPT models (GPT-3.5, GPT-4)
+openai>=1.0.0
+
+# Anthropic Claude models
+anthropic>=0.8.0
+
+# Note: You'll need to set environment variables for API keys:
+# - OPENAI_API_KEY for OpenAI models
+# - ANTHROPIC_API_KEY for Claude models
+#
+# Or pass them directly to the CLI:
+# src2md /path/to/project --use-llm --llm-model gpt-4 --llm-api-key YOUR_KEY

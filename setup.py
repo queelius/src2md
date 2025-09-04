@@ -10,13 +10,13 @@ long_description = (this_directory / "README.md").read_text()
 
 setup(
     name="src2md",
-    version="2.0.0",
-    author="Your Name",
-    author_email="your.email@example.com",
-    description="Convert source code to structured formats with intelligent LLM context optimization",
+    version="2.1.0",
+    author="Alex Towell",
+    author_email="lex@metafunctor.com",
+    description="Convert source code to structured, context-optimized markdown for LLMs with intelligent summarization",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/spinoza/src2md",
+    url="https://github.com/queelius/src2md",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 5 - Production/Stable",
@@ -36,7 +36,23 @@ setup(
         "tiktoken>=0.5.0",
         "pyyaml>=6.0",
         "pathspec>=0.11.0",
+        "astroid>=3.0.0",  # For AST-based Python analysis
     ],
+    extras_require={
+        "llm": [
+            "openai>=1.0.0",
+            "anthropic>=0.8.0",
+        ],
+        "dev": [
+            "pytest>=7.4.0",
+            "pytest-cov>=4.1.0",
+            "pytest-mock>=3.11.0",
+            "pytest-timeout>=2.1.0",
+            "black>=23.0.0",
+            "ruff>=0.1.0",
+            "mypy>=1.0.0",
+        ],
+    },
     entry_points={
         "console_scripts": [
             "src2md=src2md.cli:main",

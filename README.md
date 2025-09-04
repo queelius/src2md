@@ -3,22 +3,25 @@
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![PyPI](https://img.shields.io/pypi/v/src2md)
 ![Python Versions](https://img.shields.io/pypi/pyversions/src2md)
-![Version](https://img.shields.io/badge/version-2.0.0-green.svg)
+![Version](https://img.shields.io/badge/version-2.1.0-green.svg)
 
-**src2md** is a powerful tool that converts source code repositories into structured formats optimized for Large Language Models (LLMs). With intelligent context window management, file importance scoring, and a fluent API, it's the perfect tool for feeding code context to AI models.
+**src2md** is a powerful tool that converts source code repositories into structured, context-window-optimized representations for Large Language Models (LLMs). It addresses the fundamental challenge of fitting meaningful codebases into limited context windows while preserving the most important information through intelligent summarization, AST-based analysis, and optional LLM-powered compression.
 
 ## 🚀 **Features**
 
-### New in v2.0
-- **🎯 Context Window Optimization**: Intelligently fit codebases into LLM context windows
-- **⚡ Fluent API**: Elegant method chaining for intuitive usage
+### New in v2.1
+- **🎯 Context Window Optimization**: Intelligently fit codebases into LLM context windows with smart truncation
+- **📝 Intelligent Summarization**: AST-based code analysis with multiple compression levels
+- **🤖 LLM-Powered Compression**: Optional OpenAI/Anthropic integration for semantic summarization
+- **⚡ Fluent API**: Elegant method chaining with new summarization methods
 - **📊 File Importance Scoring**: Multi-factor analysis to prioritize critical files
 - **🪟 Predefined LLM Windows**: Built-in support for GPT-4, Claude, and more
-- **🔄 Progressive Summarization**: Compress less important files to fit token limits
+- **🔄 Progressive Summarization**: Multi-tier compression strategies for different file types
 
 ### Core Features
 - **Multiple Output Formats**: JSON, JSONL, Markdown, HTML, and plain text
-- **Smart Token Management**: Accurate token counting with tiktoken
+- **Smart Token Management**: Accurate token counting with tiktoken and structure-aware truncation
+- **Multi-Language Support**: Specialized summarizers for Python, JavaScript, TypeScript, JSON, YAML
 - **Code Statistics**: Automatic generation of project metrics and complexity analysis
 - **Flexible Filtering**: Customizable include/exclude patterns
 - **Rich CLI Interface**: Beautiful progress indicators and colored output
@@ -33,7 +36,7 @@ pip install src2md
 
 ## 🛠️ **Usage**
 
-### Quick Start - Fluent API (New in v2.0!)
+### Quick Start - Fluent API
 
 ```python
 from src2md import Repository, ContextWindow
@@ -54,6 +57,11 @@ result = (Repository("/path/to/project")
     .include("src/", "lib/")
     .exclude("tests/", "*.log")
     .with_importance_scoring()
+    .with_summarization(
+        compression_ratio=0.3,  # Target 30% of original size
+        preserve_important=True,  # Keep critical files intact
+        use_llm=True  # Use LLM if available
+    )
     .prioritize(["main.py", "core/"])
     .optimize_for_tokens(100_000)  # 100K token limit
     .analyze()
@@ -66,8 +74,16 @@ result = (Repository("/path/to/project")
 # Basic markdown generation
 src2md /path/to/project -o documentation.md
 
-# With context optimization (coming soon in CLI)
-src2md /path/to/project --optimize-for gpt-4 -o optimized.md
+# With context optimization
+src2md /path/to/project --gpt4 -o optimized.md
+src2md /path/to/project --claude3 --importance
+
+# With intelligent summarization
+src2md /path/to/project --summarize --compression-ratio 0.3
+src2md /path/to/project --summarize-tests --summarize-docs
+
+# With LLM-powered summarization (requires API key)
+src2md /path/to/project --use-llm --llm-model gpt-3.5-turbo
 
 # Multiple output formats
 src2md /path/to/project --format json --pretty
@@ -76,29 +92,129 @@ src2md /path/to/project --format html -o docs.html
 
 ### Python API Examples
 
+#### Basic Context Optimization
+
 ```python
 from src2md import Repository, ContextWindow
 
-# Example 1: Optimize for Claude 3
+# Optimize for different LLM context windows
 repo = Repository("./my-project")
 output = repo.optimize_for(ContextWindow.CLAUDE_3).analyze().to_markdown()
 
-# Example 2: Custom token limit with importance scoring
+# Custom token limit with importance scoring
 repo = (Repository("./my-project")
     .with_importance_scoring()
     .optimize_for_tokens(50_000)
     .analyze())
+```
 
-# Example 3: Generate multiple formats
+#### Intelligent Summarization
+
+```python
+# Enable smart summarization with compression
+repo = (Repository("./my-project")
+    .with_summarization(
+        compression_ratio=0.3,  # Compress to 30% of original
+        preserve_important=True,  # Keep critical files intact
+        use_llm=False  # Use AST-based summarization
+    )
+    .optimize_for(ContextWindow.GPT_4)
+    .analyze())
+
+# Use LLM-powered summarization (requires API key)
+import os
+os.environ['OPENAI_API_KEY'] = 'your-key-here'
+
+repo = (Repository("./my-project")
+    .with_summarization(
+        compression_ratio=0.2,  # More aggressive compression
+        use_llm=True,
+        llm_model="gpt-3.5-turbo"
+    )
+    .analyze())
+```
+
+#### Multi-Tier Compression Strategy
+
+```python
+# Configure different summarization levels for different file types
+repo = (Repository("./my-project")
+    .with_importance_scoring()
+    .prioritize(["src/core/", "api/"])  # Critical paths
+    .summarize_tests()  # Compress test files
+    .summarize_docs()   # Compress documentation
+    .with_summarization(
+        compression_ratio=0.25,
+        preserve_important=True
+    )
+    .optimize_for_tokens(100_000)
+    .analyze())
+
+# Access summarization metadata
+data = repo.to_dict()
+for file in data['source_files']:
+    if file.get('was_summarized'):
+        print(f"Summarized {file['path']}: {file['original_size']} -> {file['size']} bytes")
+```
+
+#### Generate Multiple Formats
+
+```python
 repo = Repository("./my-project").analyze()
 markdown = repo.to_markdown()
 json_data = repo.to_json()
 html_doc = repo.to_html()
 
-# Example 4: Access raw data
+# Access raw data
 data = repo.to_dict()
 print(f"Files: {data['metadata']['file_count']}")
-print(f"Languages: {list(data['statistics']['languages'].keys())}")
+print(f"Token usage: {data['metadata'].get('total_tokens', 0)}")
+print(f"Compression achieved: {data['metadata'].get('compression_ratio', 1.0):.1%}")
+```
+
+## 🎯 **Summarization Features**
+
+### AST-Based Python Summarization
+
+src2md uses Abstract Syntax Tree (AST) analysis to intelligently summarize Python code while preserving structure:
+
+- **MINIMAL**: Only class/function signatures
+- **OUTLINE**: Signatures with structural hierarchy  
+- **DOCSTRINGS**: Signatures plus documentation
+- **SIGNATURES**: Full signatures with type hints
+- **FULL**: No summarization
+
+### Multi-Language Support
+
+Specialized summarizers for different file types:
+
+- **Python**: AST-based analysis with import/export preservation
+- **JavaScript/TypeScript**: Function and class extraction
+- **JSON/YAML**: Schema extraction with sample data
+- **Test Files**: Test name and assertion extraction
+- **Documentation**: Heading and key point extraction
+
+### Smart Truncation
+
+When files must be truncated to fit token limits:
+
+1. Preserves code structure (complete functions/classes)
+2. Maintains syntax validity
+3. Prioritizes public APIs over private methods
+4. Keeps imports and exports intact
+
+### LLM-Powered Summarization
+
+Optional integration with OpenAI and Anthropic for semantic compression:
+
+```bash
+# Set API keys
+export OPENAI_API_KEY="your-openai-key"
+export ANTHROPIC_API_KEY="your-anthropic-key"
+
+# Use LLM summarization
+src2md /path/to/project --use-llm --llm-model gpt-3.5-turbo
+src2md /path/to/project --use-llm --llm-model claude-3-haiku-20240307
 ```
 
 ## 📊 **Output Formats**
@@ -203,11 +319,13 @@ src2md project --no-content
 
 src2md automatically generates:
 
-- File counts by type and language
-- Code complexity scores
-- Size metrics and distributions
-- Language breakdown
-- Project structure analysis
+- **File Metrics**: Counts by type and language
+- **Code Complexity**: Cyclomatic complexity scores
+- **Token Usage**: Actual token counts for LLM context
+- **Compression Stats**: Before/after summarization metrics
+- **Importance Scores**: File prioritization rankings
+- **Language Breakdown**: Distribution of code by language
+- **Structure Analysis**: Dependency and module relationships
 
 ## 🤝 **Migration from v0.x**
 

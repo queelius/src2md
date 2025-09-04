@@ -14,7 +14,7 @@ from .core.repository import Repository
 from .core.context import ContextWindow, ContextOptimizer, TokenCounter
 from .strategies.importance import ImportanceScorer, ImportanceWeights
 
-__version__ = '2.0.0'
+__version__ = '2.1.0'
 __all__ = [
     'Repository',
     'ContextWindow',

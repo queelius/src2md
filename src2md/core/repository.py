@@ -102,6 +102,29 @@ class Repository:
         self._importance_scorer = scorer or ImportanceScorer()
         return self
     
+    def with_summarization(self, compression_ratio: float = 0.3, 
+                          preserve_important: bool = True,
+                          use_llm: bool = False,
+                          llm_model: Optional[str] = None) -> 'Repository':
+        """
+        Configure summarization settings.
+        
+        Args:
+            compression_ratio: Target compression ratio (0.1 = 10% of original)
+            preserve_important: Keep important files unsummarized
+            use_llm: Use LLM for summarization if available
+            llm_model: Specific LLM model to use (e.g., 'gpt-3.5-turbo')
+            
+        Returns:
+            Self for chaining
+        """
+        self._config['use_summarization'] = True
+        self._config['compression_ratio'] = compression_ratio
+        self._config['preserve_important'] = preserve_important
+        self._config['use_llm'] = use_llm
+        self._config['llm_model'] = llm_model
+        return self
+    
     def with_dependency_graph(self) -> 'Repository':
         """Include dependency graph analysis."""
         self._config['include_dependencies'] = True
@@ -344,8 +367,47 @@ class Repository:
     
     def _summarize_file(self, entry: FileEntry) -> str:
         """Summarize a file based on its type."""
-        # TODO: Implement actual summarization strategies
-        # For now, return a placeholder
+        from ..strategies.summarization import SummarizationStrategy, SummarizationConfig, SummarizationLevel
+        
+        # Check if LLM summarization is requested
+        if self._config.get('use_llm', False):
+            from ..strategies.llm_summarizer import LLMSummarizer, LLMConfig, HybridSummarizer
+            
+            llm_config = LLMConfig(
+                model=self._config.get('llm_model'),
+                max_tokens=int(entry.size * self._config.get('compression_ratio', 0.3) / 4)  # Rough estimate
+            )
+            
+            hybrid = HybridSummarizer(llm_config)
+            if entry.content:
+                return hybrid.summarize(
+                    entry.path, 
+                    entry.content,
+                    use_llm_for=['all'] if llm_config.api_key else []
+                )
+        
+        # Fallback to rule-based summarization
+        # Configure summarization based on importance
+        if entry.importance and entry.importance.total_score < 0.3:
+            level = SummarizationLevel.MINIMAL
+        elif entry.importance and entry.importance.total_score < 0.5:
+            level = SummarizationLevel.OUTLINE
+        else:
+            level = SummarizationLevel.DOCSTRINGS
+        
+        config = SummarizationConfig(
+            level=level,
+            preserve_imports=True,
+            preserve_exports=True,
+            target_compression_ratio=self._config.get('compression_ratio', 0.3)
+        )
+        
+        strategy = SummarizationStrategy(config)
+        
+        if entry.content and strategy.can_summarize(entry.path):
+            return strategy.summarize(entry.path, entry.content)
+        
+        # Fallback for unsupported files
         return f"[Summarized: {entry.relative_path}]"
     
     def to_dict(self) -> Dict:
